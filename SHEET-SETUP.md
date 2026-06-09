@@ -4,12 +4,18 @@ This logs every report generation to a Google Sheet so the team can see
 **who generated a report, their mobile, date & time, the details they entered,
 and how many times each user generated a report** — and search any user later.
 
-Two tabs are created automatically the first time data arrives:
+**Four tabs are created automatically** the first time data arrives — a combined
+**Master** tab plus one tab per species:
 
 | Tab | What it holds |
 |-----|----------------|
-| **Reports** | One row **per generation** — Timestamp, Date, Time, Name, Mobile, Email, Generation #, Animal Type, Breed, No. of Animals, Project Cost, Loan, NPV, BCR, IRR, Avg DSCR, and the full **Details Entered (JSON)**. |
-| **Users** | One row **per mobile number** — Name, Email, **Total Reports**, First Generated, Last Generated. (Quick per-user view.) |
+| **Master** | One row **per generation, all species together** — Timestamp, Date, Time, Generation #, **Species**, Name, Mobile, Email, Aadhar, Address, Bank/Branch, Breed, Unit Size, Project Cost, Loan, NPV, BCR, IRR, Avg DSCR, and the full **Details (JSON)**. This is the single place to see all activity. |
+| **Cow** | One row per **Cow / Dairy** generation — every parameter the user entered for that species, in its own columns, ending with the project metrics. |
+| **Goat** | One row per **Goat** generation — full goat parameters in their own columns. |
+| **Chicken** | One row per **Native Chicken (Hen)** generation — full chicken parameters in their own columns. |
+
+Each generation writes **one row to Master and one row to its species tab**.
+The **Generation #** is counted per mobile across all species (from the Master tab).
 
 ---
 
