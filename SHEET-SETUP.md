@@ -54,16 +54,24 @@ The **Generation #** is counted per mobile across all species (from the Master t
 ---
 
 ## How the team uses it
-- **See all activity:** open the **Reports** tab — newest rows at the bottom.
+- **See all activity (any species):** open the **Master** tab — newest rows at the bottom.
+  Filter the **Species** column to see only Cow, Goat or Chicken.
+- **Deep-dive one species:** open its **Cow / Goat / Chicken** tab — every parameter that
+  species collects is in its own column, so you can sort/compare like a spreadsheet.
 - **Find a specific user:** use Google Sheets **Find** (Ctrl/Cmd + F) or a column filter on
-  **Name** or **Mobile**. Every report that user generated will be listed, with date, time
-  and the exact details they entered.
+  **Name** or **Mobile** in the Master tab. Every report that user generated is listed, with
+  date, time and the figures they entered.
 - **How many times a user generated:** the **Generation #** column shows the running count for
-  that mobile; the **Users** tab shows the **Total Reports** per person at a glance.
-- **What they entered:** the **Details Entered (JSON)** column holds every parameter from the form
-  for that generation.
+  that mobile (across all species).
+- **What they entered:** the species tab holds every parameter in its own column; the Master tab
+  also keeps the full **Details (JSON)** for that generation.
 
 ## Notes
+- **Upgrading an existing sheet (Stage 4):** if you already deployed the older single-`Reports`-tab
+  version, just replace all the Apps Script code with the new `google-apps-script.gs`, then
+  **Deploy ▸ Manage deployments ▸ Edit ▸ Version: New version** (keeps the same URL — no website
+  change needed). The new **Master / Cow / Goat / Chicken** tabs are created automatically on the
+  next generation; any old `Reports`/`Users` tabs are left untouched (you can archive or delete them).
 - **Privacy:** data is sent only to *your* Google Sheet; nothing else leaves the browser.
 - **Re-deploying after edits:** if you change the `.gs` code later, use **Deploy ▸ Manage deployments ▸
   Edit ▸ Version: New version** so the URL stays the same.

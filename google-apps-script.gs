@@ -8,6 +8,7 @@
  *   • Cow      — full Cow / Dairy parameters per generation.
  *   • Goat     — full Goat parameters per generation.
  *   • Chicken  — full Native Chicken (Hen) parameters per generation.
+ *   • Sheep    — full Sheep / Ram Lamb Fattening parameters per generation.
  *
  * Every generation appends ONE row to Master AND ONE row to its species tab.
  *
@@ -281,11 +282,72 @@ var HEN_DET = [
   ['Income from Manure (Rs/bird)',     'det', 'hManure']
 ];
 
+/* ── SHEEP / RAM LAMB FATTENING parameters ──────────────────────────────── */
+var SHEEP_DET = [
+  ['Breed',                            'det', 'sBreed'],
+  ['Ram Lambs per Batch',              'det', 'sLambs'],
+  ['Batches at a Time in Shed',        'det', 'sBatchesAtTime'],
+  ['Batches Introduced per Year',      'det', 'sBatchesY'],
+  ['Fattening Period (days)',          'det', 'sFattenDays'],
+  ['Purchase Cost of Ram Lamb (Rs)',   'det', 'sPurchaseCost'],
+  ['Insurance Premium (%)',            'det', 'sInsurance'],
+  ['Transport Charges (Rs/lamb)',      'det', 'sTransport'],
+  ['Mortality (%)',                    'det', 'sMortality'],
+  ['Weight at Purchase (kg)',          'det', 'sPurWeight'],
+  ['Weight at Marketing (kg)',         'det', 'sMktWeight'],
+  ['Floor Space (sqft/lamb)',          'det', 'sFloorSpace'],
+  ['Construction Cost - Lamb Shed (Rs/lamb)','det','sShedCost'],
+  ['Store Room Area (sqft)',           'det', 'sStoreArea'],
+  ['Store Room Cost (Rs/sqft)',        'det', 'sStoreCost'],
+  ['Equipment - Feeder & Waterer (Rs/lamb)','det','sEquipLamb'],
+  ['Chaff Cutter (Rs)',                'det', 'sChaff'],
+  ['Concentrate Feed Making Machinery (Rs)','det','sFeedMachine'],
+  ['Sprinkler & Fogger (Rs)',          'det', 'sSprinkler'],
+  ['Computers & CCTV (Rs)',            'det', 'sComputers'],
+  ['Labour Quarters - Floor Space (sqft)','det','sLqArea'],
+  ['Labour Quarters - Cost (Rs/sqft)', 'det', 'sLqCost'],
+  ['Overhead Tank (Rs)',               'det', 'sTank'],
+  ['Fencing (Rs)',                     'det', 'sFencing'],
+  ['Land Levelling (Rs)',              'det', 'sLandLevel'],
+  ['Silage Making Unit (Rs)',          'det', 'sSilageUnit'],
+  ['Two-Wheelers (nos)',               'det', 'sTwoW'],
+  ['Cost per Two-Wheeler (Rs)',        'det', 'sTwoWCost'],
+  ['Four-Wheelers (nos)',              'det', 'sFourW'],
+  ['Cost per Four-Wheeler (Rs)',       'det', 'sFourWCost'],
+  ['Margin Money (%)',                 'det', 'sMargin'],
+  ['Rate of Interest (%)',             'det', 'sInterest'],
+  ['Repayment Period (yrs)',           'det', 'sRepay'],
+  ['Subsidy (%)',                      'det', 'sSubsidy'],
+  ['Concentrate Feed (kg/lamb/day)',   'det', 'sConcFeed'],
+  ['Concentrate Feed Cost (Rs/kg)',    'det', 'sConcCost'],
+  ['Dry Fodder (kg/lamb/day)',         'det', 'sDryFodder'],
+  ['Dry Fodder Cost (Rs/kg)',          'det', 'sDryCost'],
+  ['Silage (kg/lamb/day)',             'det', 'sSilage'],
+  ['Silage Cost (Rs/kg)',              'det', 'sSilageCost'],
+  ['Acre for Green Fodder',            'det', 'sGreenAcre'],
+  ['Green Fodder Cultivation (Rs/acre)','det','sGreenCost'],
+  ['Feed Supplement (Rs/lamb)',        'det', 'sFeedSupp'],
+  ['Veterinary Expenses (Rs/lamb)',    'det', 'sVet'],
+  ['Electricity (Rs/month)',           'det', 'sElectricity'],
+  ['Fuel (Rs/month)',                  'det', 'sFuel'],
+  ['Concentrate Feed Making Expense (Rs/batch)','det','sFeedMaking'],
+  ['Miscellaneous (Rs/lamb)',          'det', 'sMisc'],
+  ['Depreciation - Building (%)',      'det', 'sDepBuilding'],
+  ['Depreciation - Equipment (%)',     'det', 'sDepEquip'],
+  ['No. of Labour Required',           'det', 'sWorkers'],
+  ['Wages for Farm Worker (Rs/month)', 'det', 'sWage'],
+  ['No. of Drivers',                   'det', 'sDrivers'],
+  ['Salary for Driver (Rs/month)',     'det', 'sDrvSal'],
+  ['Sale Price of Ram Lamb (Rs/lamb)', 'det', 'sSalePrice'],
+  ['Income from Manure (Rs/lamb)',     'det', 'sManure']
+];
+
 /* species code (from the website) → { tab name , full column layout } */
 var SPECIES_TABS = {
-  Cow:  { tab: 'Cow',     cols: DETAIL_HEAD.concat(COW_DET,  SUMMARY) },
-  Goat: { tab: 'Goat',    cols: DETAIL_HEAD.concat(GOAT_DET, SUMMARY) },
-  Hen:  { tab: 'Chicken', cols: DETAIL_HEAD.concat(HEN_DET,  SUMMARY) }
+  Cow:   { tab: 'Cow',     cols: DETAIL_HEAD.concat(COW_DET,   SUMMARY) },
+  Goat:  { tab: 'Goat',    cols: DETAIL_HEAD.concat(GOAT_DET,  SUMMARY) },
+  Hen:   { tab: 'Chicken', cols: DETAIL_HEAD.concat(HEN_DET,   SUMMARY) },
+  Sheep: { tab: 'Sheep',   cols: DETAIL_HEAD.concat(SHEEP_DET, SUMMARY) }
 };
 
 /* ── entry points ───────────────────────────────────────────────────────── */
@@ -385,14 +447,16 @@ function genCount_(master, mobile) {
 }
 
 function speciesName_(species) {
-  if (species === 'Hen')  return 'Chicken';
-  if (species === 'Goat') return 'Goat';
+  if (species === 'Hen')   return 'Chicken';
+  if (species === 'Goat')  return 'Goat';
+  if (species === 'Sheep') return 'Sheep';
   return 'Cow';
 }
 
 function breed_(species, det) {
-  if (species === 'Goat') return det.gBreed || '';
-  if (species === 'Hen')  return det.hBreed || '';
+  if (species === 'Goat')  return det.gBreed || '';
+  if (species === 'Hen')   return det.hBreed || '';
+  if (species === 'Sheep') return det.sBreed || '';
   return det.C8 || '';
 }
 
@@ -404,6 +468,9 @@ function unitText_(species, det) {
   }
   if (species === 'Hen') {
     return (det.hBirds || 0) + ' birds/batch';
+  }
+  if (species === 'Sheep') {
+    return (det.sLambs || 0) + ' ram lambs/batch';
   }
   n = det.C9 || ((+det.D9 || 0) + (+det.F9 || 0));
   return n + ' ' + (det.C7 || 'animals');

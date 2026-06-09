@@ -519,11 +519,100 @@ const HEN_SECTIONS = [
     ]},
 ];
 
-// ════════ SPECIES REGISTRY — Cow, Goat & Hen ════════
+// ════════ SHEEP schema (Excel: sheep ram lamb fattening — corrected) ════════
+const SHEEP_SECTIONS = [
+  COW_SECTIONS[0],   // reuse the exact "Your Details" section
+  { id:'flock', title:'Ram Lambs', icon:'animal', note:'Ram lamb fattening — batch cycle (buy lambs, fatten, sell, repeat).',
+    fields:[
+      {k:'sBreed', label:'Breed', type:'select', def:'Mecheri', opts:['Mecheri','Madras Red','Ramnad White','Vembur']},
+      {k:'sLambs', label:'Number of Ram Lambs per Batch', type:'num', def:100, unit:'lambs', min:0},
+      {k:'sBatchesAtTime', label:'Batches at a time in Shed', type:'num', def:1, unit:'nos', min:1},
+      {k:'sBatchesY', label:'Batches Introduced per Year', type:'num', def:3, unit:'/yr', min:0},
+      {k:'sFattenDays', label:'Fattening Period', type:'num', def:120, unit:'days', min:0},
+      {k:'sPurchaseCost', label:'Purchase Cost of Ram Lamb', type:'num', def:6000, unit:'₹/lamb', min:0},
+      {k:'sInsurance', label:'Insurance Premium', type:'num', def:6, unit:'%', min:0, step:0.1},
+      {k:'sTransport', label:'Transport Charges', type:'num', def:50, unit:'₹/lamb', min:0},
+      {k:'sMortality', label:'Mortality', type:'num', def:2, unit:'%', min:0, step:0.1},
+      {k:'sPurWeight', label:'Weight at Purchase', type:'num', def:12, unit:'kg/lamb', min:0, step:0.1},
+      {k:'sMktWeight', label:'Weight at Marketing', type:'num', def:35, unit:'kg/lamb', min:0, step:0.1},
+    ]},
+  { id:'shed', title:'Shed &amp; Equipment', icon:'shed', note:'Shed construction and equipment.',
+    fields:[
+      {k:'sFloorSpace', label:'Floor Space Requirement', type:'num', def:5, unit:'sq.ft/lamb', min:0, step:0.1},
+      {k:'sShedCost', label:'Construction Cost — Lamb Shed', type:'num', def:450, unit:'₹/lamb', min:0},
+      {k:'sStoreArea', label:'Store Room Area', type:'num', def:0, unit:'sq.ft', min:0},
+      {k:'sStoreCost', label:'Store Room Cost', type:'num', def:0, unit:'₹/sq.ft', min:0},
+      {k:'sEquipLamb', label:'Equipment — Feeder &amp; Waterer', type:'num', def:100, unit:'₹/lamb', min:0},
+      {k:'sChaff', label:'Chaff Cutter', type:'num', def:30000, unit:'₹', min:0},
+      {k:'sFeedMachine', label:'Concentrate Feed Making Machinery', type:'num', def:0, unit:'₹', min:0},
+      {k:'sSprinkler', label:'Sprinkler &amp; Fogger', type:'num', def:0, unit:'₹', min:0},
+      {k:'sComputers', label:'Computers &amp; CCTV', type:'num', def:0, unit:'₹', min:0},
+    ]},
+  { id:'infra', title:'Other Infrastructure', icon:'infra', note:'Civil infrastructure (optional — leave at 0 if not needed).',
+    fields:[
+      {k:'sLqArea', label:'Labour Quarters — Floor Space', type:'num', def:0, unit:'sq.ft', min:0},
+      {k:'sLqCost', label:'Labour Quarters — Cost', type:'num', def:0, unit:'₹/sq.ft', min:0},
+      {k:'sTank', label:'Overhead Tank', type:'num', def:0, unit:'₹', min:0},
+      {k:'sFencing', label:'Fencing', type:'num', def:0, unit:'₹', min:0},
+      {k:'sLandLevel', label:'Land Levelling', type:'num', def:0, unit:'₹', min:0},
+      {k:'sSilageUnit', label:'Silage Making Unit', type:'num', def:0, unit:'₹', min:0},
+    ]},
+  { id:'vehicle', title:'Vehicle', icon:'vehicle', note:'Optional — leave at 0 if no vehicle.',
+    fields:[
+      {k:'sTwoW', label:'Number of Two-Wheelers', type:'num', def:0, unit:'nos', min:0},
+      {k:'sTwoWCost', label:'Cost per Two-Wheeler', type:'num', def:0, unit:'₹', min:0},
+      {k:'sFourW', label:'Number of Four-Wheelers', type:'num', def:0, unit:'nos', min:0},
+      {k:'sFourWCost', label:'Cost per Four-Wheeler', type:'num', def:0, unit:'₹', min:0},
+    ]},
+  { id:'finance', title:'Means of Finance', icon:'finance', note:'Loan terms and subsidy.',
+    fields:[
+      {k:'sMargin', label:'Margin Money', type:'num', def:5, unit:'%', min:0, step:0.1},
+      {k:'sInterest', label:'Rate of Interest', type:'num', def:11.5, unit:'% /yr', min:0, step:0.1},
+      {k:'sRepay', label:'Repayment Period', type:'num', def:7, unit:'years', min:1, max:15},
+      {k:'sSubsidy', label:'Subsidy', type:'num', def:35, unit:'%', min:0, step:0.1},
+    ]},
+  { id:'expense', title:'Expenses', icon:'expense', note:'Feed, fodder, vet, utilities and depreciation rates.',
+    fields:[
+      {k:'__se1', type:'sub', label:'Feeding'},
+      {k:'sConcFeed', label:'Concentrate Feed Required', type:'num', def:0.45, unit:'kg/lamb/day', min:0, step:0.01},
+      {k:'sConcCost', label:'Concentrate Feed Cost', type:'num', def:22, unit:'₹/kg', min:0},
+      {k:'sDryFodder', label:'Dry Fodder Required', type:'num', def:0.8, unit:'kg/lamb/day', min:0, step:0.01},
+      {k:'sDryCost', label:'Dry Fodder Cost', type:'num', def:2, unit:'₹/kg', min:0},
+      {k:'sSilage', label:'Silage Required', type:'num', def:1, unit:'kg/lamb/day', min:0, step:0.01},
+      {k:'sSilageCost', label:'Silage Cost', type:'num', def:3, unit:'₹/kg', min:0},
+      {k:'sGreenAcre', label:'Acre for Green Fodder', type:'num', def:1, unit:'acre', min:0, step:0.1},
+      {k:'sGreenCost', label:'Green Fodder Cultivation', type:'num', def:5000, unit:'₹/acre', min:0},
+      {k:'sFeedSupp', label:'Feed Supplement', type:'num', def:30, unit:'₹/lamb', min:0},
+      {k:'__se2', type:'sub', label:'Health &amp; Utilities'},
+      {k:'sVet', label:'Veterinary Expenses', type:'num', def:100, unit:'₹/lamb', min:0},
+      {k:'sElectricity', label:'Electricity Expenses', type:'num', def:200, unit:'₹/month', min:0},
+      {k:'sFuel', label:'Fuel Expenses', type:'num', def:0, unit:'₹/month', min:0},
+      {k:'sFeedMaking', label:'Concentrate Feed Making Expense', type:'num', def:0, unit:'₹/batch', min:0},
+      {k:'sMisc', label:'Miscellaneous Expenses', type:'num', def:10, unit:'₹/lamb', min:0},
+      {k:'__se3', type:'sub', label:'Depreciation Rates'},
+      {k:'sDepBuilding', label:'Depreciation — Building', type:'num', def:10, unit:'% /yr', min:0, step:0.1},
+      {k:'sDepEquip', label:'Depreciation — Equipment', type:'num', def:15, unit:'% /yr', min:0, step:0.1},
+    ]},
+  { id:'labour', title:'Labour', icon:'labour', note:'Number and monthly wages of workers.',
+    fields:[
+      {k:'sWorkers', label:'No. of Labour Required', type:'num', def:1, unit:'nos', min:0},
+      {k:'sWage', label:'Wages for Farm Worker', type:'num', def:10000, unit:'₹/month', min:0},
+      {k:'sDrivers', label:'No. of Drivers', type:'num', def:0, unit:'nos', min:0},
+      {k:'sDrvSal', label:'Salary for Driver', type:'num', def:0, unit:'₹/month', min:0},
+    ]},
+  { id:'returns', title:'Returns', icon:'returns', note:'Sale price and manure income.',
+    fields:[
+      {k:'sSalePrice', label:'Sale Price of Ram Lamb', type:'num', def:11000, unit:'₹/lamb', min:0},
+      {k:'sManure', label:'Income from Manure', type:'num', def:20, unit:'₹/lamb', min:0},
+    ]},
+];
+
+// ════════ SPECIES REGISTRY — Cow, Goat, Hen & Sheep ════════
 const SPECIES = {
-  Cow:  { label:'Cow / Dairy Farming',     sections: COW_SECTIONS },
-  Goat: { label:'Goat Farming',            sections: GOAT_SECTIONS },
-  Hen:  { label:'Native Hen (Broiler)',    sections: HEN_SECTIONS }
+  Cow:   { label:'Cow / Dairy Farming',          sections: COW_SECTIONS },
+  Goat:  { label:'Goat Farming',                 sections: GOAT_SECTIONS },
+  Hen:   { label:'Native Hen (Broiler)',         sections: HEN_SECTIONS },
+  Sheep: { label:'Sheep — Ram Lamb Fattening',   sections: SHEEP_SECTIONS }
 };
 let speciesKey = 'Cow';
 let SECTIONS = SPECIES[speciesKey].sections;   // active species' sections
