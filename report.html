@@ -138,6 +138,19 @@ body.exporting .report-container{max-width:794px;margin:0;padding:0}
 body.exporting .rpage{margin:0;box-shadow:none;border-radius:0;page-break-before:always}
 body.exporting .rpage:first-child{page-break-before:auto}
 body.exporting .rpage-inner{padding:13mm 14mm}
+/* cover fills a full A4 page (794px wide → 1123px tall) so the PDF cover has no
+   awkward empty band; content is vertically centred. */
+body.exporting .cover{min-height:1123px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center}
+body.exporting .cover h1,body.exporting .cover .subtitle,body.exporting .cover .univ,body.exporting .cover .inst,body.exporting .cover .dept{text-align:center}
+body.exporting .cover-box{width:430px}
+/* export-mode density: the on-screen row padding is generous; trim it a touch so
+   the dense statement tables fit one A4 page at full width (no shrinking, uniform
+   across pages). Visually almost identical to the preview. */
+body.exporting td{padding-top:5px;padding-bottom:5px}
+body.exporting th{padding-top:6px;padding-bottom:6px}
+body.exporting table{margin-bottom:10px}
+body.exporting .sec-title{margin-bottom:11px;padding-top:7px;padding-bottom:7px}
+body.exporting .hl{margin-bottom:10px}
 /* ════ RESPONSIVE (mobile-first) ════ */
 @media(max-width:860px){
   .report-container{margin:16px auto;padding:0 12px 40px}
@@ -274,6 +287,77 @@ const F2  = n => (Math.round(n*100)/100).toLocaleString('en-IN',{minimumFraction
 const roundDown2 = x => Math.floor(x/100)*100;
 function pmt(rate,nper,pv){ if(!nper) return 0; if(rate===0) return pv/nper; return pv*rate*Math.pow(1+rate,nper)/(Math.pow(1+rate,nper)-1); }
 const ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV'];
+
+// ════════════════════ PDF EXPORT (shared, all species) ════════════════════
+// This html2pdf bundle exposes ONLY window.html2pdf — there is no global
+// html2canvas or jsPDF. So we (a) borrow a jsPDF instance from html2pdf's own
+// worker, and (b) render each logical page to its OWN canvas via html2pdf's
+// toCanvas, then drop exactly one fitted image per A4 page. This guarantees:
+// no mid-content page breaks, no clipped/hidden text, no split tables/words,
+// and consistent top/bottom/side margins — on every device.
+function _borrowPDF(jsPDFOpts){
+  const probe=document.createElement('div');
+  probe.style.cssText='position:fixed;left:-9999px;top:0;width:8px;height:8px;background:#fff';
+  document.body.appendChild(probe);
+  return window.html2pdf().set({jsPDF:jsPDFOpts,html2canvas:{scale:1,logging:false}})
+    .from(probe).toPdf().get('pdf')
+    .then(pdf=>{ probe.remove(); return pdf; }, err=>{ probe.remove(); throw err; });
+}
+// Render one node to a canvas. html2pdf sizes its (clean, off-screen) clone
+// container to the jsPDF page px-width, so we hand it a page format whose width
+// equals the node's design width in px. A4's px-width is only ~794, which would
+// clip a 1000px-wide chart sheet — so the width must match the node.
+function _nodeToCanvas(node, designPx, bg){
+  const wmm=designPx/96*25.4;                        // px → mm at 96dpi
+  return window.html2pdf().set({
+    jsPDF:{unit:'mm',format:[wmm, wmm/0.7071068],orientation:'portrait'},
+    html2canvas:{scale:2,backgroundColor:bg,useCORS:true,logging:false},
+    margin:0
+  }).from(node).toContainer().toCanvas().get('canvas');
+}
+// Metrics report: every .rpage becomes its own A4 page, scaled to fit within an
+// 8mm margin (the cover is full-bleed). One page in → one page out, never split.
+async function exportPagesPDF(filename){
+  const pages=[...document.querySelectorAll('#out .rpage')];
+  if(!pages.length) return;
+  document.body.classList.add('exporting');
+  try{
+    const pdf=await _borrowPDF({unit:'mm',format:'a4',orientation:'portrait'});
+    const pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight();
+    for(let i=0;i<pages.length;i++){
+      const isCover=!!pages[i].querySelector('.cover');
+      const canvas=await _nodeToCanvas(pages[i],794,'#ffffff');
+      const data=canvas.toDataURL('image/jpeg',0.95);
+      pdf.addPage();
+      if(isCover){
+        pdf.addImage(data,'JPEG',0,0,pw,ph);                           // cover fills the page
+      } else {
+        // .rpage is built at exactly A4 width with its own inner margins, so it
+        // maps edge-to-edge — identical to the on-screen preview. We only scale
+        // down (keeping it centred) if a page runs a touch taller than A4.
+        const r=Math.min(pw/canvas.width, ph/canvas.height);
+        const w=canvas.width*r, h=canvas.height*r;
+        pdf.addImage(data,'JPEG',(pw-w)/2,0,w,h);                      // full width, top-aligned
+      }
+    }
+    pdf.deletePage(1);                                                  // drop the borrow-probe page
+    pdf.save(filename);
+  } finally { document.body.classList.remove('exporting'); }
+}
+// Chart dashboard: each fixed 1000×1414 .csheet becomes one full-bleed A4 page.
+async function exportSheetsPDF(root, filename, bg){
+  const sheets=[...root.querySelectorAll('.csheet')];
+  if(!sheets.length) return;
+  const pdf=await _borrowPDF({unit:'pt',format:'a4',orientation:'portrait'});
+  const pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight();
+  for(let i=0;i<sheets.length;i++){
+    const canvas=await _nodeToCanvas(sheets[i],1000,bg);
+    pdf.addPage();
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.95),'JPEG',0,0,pw,ph);
+  }
+  pdf.deletePage(1);
+  pdf.save(filename);
+}
 
 // ════════════════════ SPECIES ROUTER ════════════════════
 const SPECIES_PICK = D.species || 'Cow';
@@ -602,14 +686,25 @@ html += page(`
   <tr class="total"><td>Total</td><td></td><td class="num">${INR(yrPrin.reduce((a,b)=>a+b,0))}</td><td class="num">${INR(yrInt.reduce((a,b)=>a+b,0))}</td><td class="num">${INR(yrPrin.reduce((a,b)=>a+b,0)+yrInt.reduce((a,b)=>a+b,0))}</td><td></td></tr>
 </table>`);
 
-// ── REPAYMENT (monthly) ──
-html += page(`
-<div class="sec-title">Loan Repayment — Monthly Schedule (${months} Months)</div>
-<table>
-  <tr><th>Month</th><th class="num">Instalment</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Balance</th></tr>
-  <tr class="subtotal"><td colspan="4">Loan Disbursed</td><td class="num">${INR(loanAmt)}</td></tr>
-  ${monthly.map(r=>`<tr ${r.m<=MORA?'class="subtotal"':''}><td>Month ${r.m}${r.m<=MORA?' (Moratorium)':''}</td><td class="num">${F2(r.pay)}</td><td class="num">${r.prin?F2(r.prin):'—'}</td><td class="num">${F2(r.intr)}</td><td class="num">${F2(r.bal)}</td></tr>`).join('')}
-</table>`);
+// ── REPAYMENT (monthly) ── split into page-sized chunks so each fits one A4
+//    page at full size (no shrinking, no mid-row splits) — matches the preview.
+{
+  const RPP=28;                                  // month-rows per page
+  const thRow=`<tr><th>Month</th><th class="num">Instalment</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Balance</th></tr>`;
+  const mkRow=r=>`<tr ${r.m<=MORA?'class="subtotal"':''}><td>Month ${r.m}${r.m<=MORA?' (Moratorium)':''}</td><td class="num">${F2(r.pay)}</td><td class="num">${r.prin?F2(r.prin):'—'}</td><td class="num">${F2(r.intr)}</td><td class="num">${F2(r.bal)}</td></tr>`;
+  const nChunks=Math.ceil(monthly.length/RPP);
+  for(let ci=0;ci<nChunks;ci++){
+    const slice=monthly.slice(ci*RPP,(ci+1)*RPP);
+    const range=nChunks>1?` &middot; Months ${slice[0].m}–${slice[slice.length-1].m}`:'';
+    html += page(`
+    <div class="sec-title">Loan Repayment — Monthly Schedule (${months} Months)${range}</div>
+    <table>
+      ${thRow}
+      ${ci===0?`<tr class="subtotal"><td colspan="4">Loan Disbursed</td><td class="num">${INR(loanAmt)}</td></tr>`:''}
+      ${slice.map(mkRow).join('')}
+    </table>`);
+  }
+}
 
 // ── DEPRECIATION ──
 html += page(`
@@ -776,14 +871,10 @@ function doDownload(){
   document.body.classList.add('exporting');
   const done=()=>{ document.body.classList.remove('exporting'); saving=false; };
   if(window.html2pdf){
-    html2pdf().set({
-      margin:0,
-      filename:fname,
-      image:{type:'jpeg',quality:0.98},
-      html2canvas:{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:794},
-      jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
-      pagebreak:{mode:['css','legacy']}
-    }).from(el).save().then(done).catch(done);
+    exportPagesPDF(fname).then(done).catch(err=>{
+      done();
+      alert('Could not prepare the PDF. Please make sure "html2pdf.bundle.min.js" is in the same folder as this page, then try again.');
+    });
   } else {
     // PDF library not available — never fall back to the print dialog
     done();
@@ -1688,7 +1779,7 @@ function attachReportActions(s){
   function doSave(){ if(saving)return; saving=true; close(pm); close(vm);
     const el=document.getElementById('out'); document.body.classList.add('exporting');
     const done=()=>{document.body.classList.remove('exporting');saving=false;};
-    if(window.html2pdf){ html2pdf().set({margin:0,filename:s.species+'-Project-Report_'+((s.name||'farm').replace(/[^\w]+/g,'_'))+'.pdf',image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:794},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy']}}).from(el).save().then(done).catch(done); }
+    if(window.html2pdf){ exportPagesPDF(s.species+'-Project-Report_'+((s.name||'farm').replace(/[^\w]+/g,'_'))+'.pdf').then(done).catch(()=>{ done(); alert('Could not prepare the PDF. Please try again.'); }); }
     else { done(); alert('PDF library missing.'); } }
   function reqSave(){ if(s.zero){ open(zm); return; } close(pm); if(!isViable){ open(rm); return; } if(dscrViable) open(vm); else doSave(); }
   document.getElementById('previewBtn').addEventListener('click',()=> open(s.zero?zm:pm));
@@ -1900,31 +1991,12 @@ function attachReportActions(s){
 
   function downloadPDF(){
     const c=window.__CHART; if(!c||!host.firstChild) return;
-    const doc=host.firstElementChild;
-    const prevT=host.style.transform, prevH=host.style.height, prevD=doc?doc.style.transform:'';
-    host.style.transform='none'; host.style.height='auto'; if(doc) doc.style.transform='none';
-    const restore=()=>{ host.style.transform=prevT; host.style.height=prevH; if(doc) doc.style.transform=prevD; };
-    const pages=host.querySelectorAll('.csheet');
     const fname=c.species+'-Chart-Report_'+((c.farmer||'farm').replace(/[^\w]+/g,'_'))+'.pdf';
-    const h2c=window.html2canvas;
-    const JsPDF=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
-    if(h2c && JsPDF){
-      const pdf=new JsPDF({unit:'pt',format:'a4',orientation:'portrait'});
-      const pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight();
-      let i=0;
-      (function next(){
-        if(i>=pages.length){ pdf.save(fname); restore(); return; }
-        h2c(pages[i],{scale:2,backgroundColor:'#14532d',useCORS:true,logging:false}).then(canvas=>{
-          if(i>0) pdf.addPage('a4','portrait');
-          pdf.addImage(canvas.toDataURL('image/jpeg',0.98),'JPEG',0,0,pw,ph);
-          i++; next();
-        }).catch(()=>{ restore(); alert('Could not render the chart pages.'); });
-      })();
-    } else if(window.html2pdf){
-      html2pdf().set({margin:0,filename:fname,image:{type:'jpeg',quality:0.98},
-        html2canvas:{scale:2,backgroundColor:'#14532d',useCORS:true,windowWidth:PW},
-        jsPDF:{unit:'pt',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy'],after:'.csheet'}}).from(host.firstChild).save().then(restore).catch(restore);
-    } else { restore(); alert('PDF library missing.'); }
+    if(window.html2pdf){
+      // Each .csheet is captured from a clean off-screen clone (handled inside
+      // exportSheetsPDF), so the live preview's scale()/scroll never affects it.
+      exportSheetsPDF(host, fname, '#14532d').catch(()=>{ alert('Could not render the chart pages.'); });
+    } else { alert('PDF library missing.'); }
   }
   window.addEventListener('resize',()=>{ if(overlay&&overlay.classList.contains('show')) fitScale(); });
   if(overlay){
