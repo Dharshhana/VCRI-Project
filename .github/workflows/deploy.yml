@@ -26,8 +26,21 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Put the secret URL into the site
+        env:
+          APPS_SCRIPT_URL: ${{ secrets.APPS_SCRIPT_URL }}
         run: |
-          sed -i "s#__APPS_SCRIPT_URL__#${{ secrets.APPS_SCRIPT_URL }}#g" report.html
+          python3 - <<'PY'
+          import os
+          url = os.environ['APPS_SCRIPT_URL'].strip()
+          path = 'report.html'
+          with open(path, encoding='utf-8') as f:
+              text = f.read()
+          count = text.count('__APPS_SCRIPT_URL__')
+          text = text.replace('__APPS_SCRIPT_URL__', url)
+          with open(path, 'w', encoding='utf-8') as f:
+              f.write(text)
+          print(f'Replaced {count} placeholder(s) in {path}')
+          PY
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
