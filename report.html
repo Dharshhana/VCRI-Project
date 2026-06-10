@@ -137,7 +137,12 @@ body.exporting .app-main{overflow:visible;height:auto}
 body.exporting .report-container{max-width:794px;margin:0;padding:0}
 body.exporting .rpage{margin:0;box-shadow:none;border-radius:0;page-break-before:always}
 body.exporting .rpage:first-child{page-break-before:auto}
-body.exporting .rpage-inner{padding:13mm 14mm}
+/* every content page fills a full A4 (794px → 1123px): letterhead pinned at the
+   top, page number at the bottom, and the section content centred in between —
+   so short sections no longer leave a big empty band at the bottom. */
+body.exporting .rpage-inner{padding:13mm 14mm;min-height:1123px;box-sizing:border-box;display:flex;flex-direction:column}
+body.exporting .pg-body{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:0}
+body.exporting .pg-num{margin-top:0}
 /* cover fills a full A4 page (794px wide → 1123px tall) so the PDF cover has no
    awkward empty band; content is vertically centred. */
 body.exporting .cover{min-height:1123px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center}
@@ -540,8 +545,7 @@ function pgHeader(){
   </div>`;
 }
 let pageNo=0;
-function page(content){ pageNo++; return `<div class="rpage"><div class="rpage-inner">${pgHeader()}${content}
-   <div class="pg-num"><span class="c">Guided by Dr. V. Senthilkumar, Prof. &amp; Head, Dept. of AH Economics</span> Page ${pageNo}</div></div></div>`; }
+function page(content){ pageNo++; return `<div class="rpage"><div class="rpage-inner">${pgHeader()}<div class="pg-body">${content}</div><div class="pg-num"><span class="c">Guided by Dr. V. Senthilkumar, Prof. &amp; Head, Dept. of AH Economics</span> Page ${pageNo}</div></div></div>`; }
 const rowsFn = (rows)=>rows.map(([lbl,fn])=>`<tr><td>${lbl}</td>${Array.from({length:NY},(_,y)=>`<td class="num">${INR(fn(y))}</td>`).join('')}</tr>`).join('');
 
 let html='';
@@ -1058,7 +1062,7 @@ function renderGoat(){
   const yhCols=YH.map(h=>`<th class="num">${h}</th>`).join('');
   let pageNo=0;
   const pgHeader=()=>`<div class="pg-header"><div><h2>Veterinary College &amp; Research Institute, Namakkal</h2><p>Dept. of Animal Husbandry Economics — Bankable Goat Project Report</p></div><div class="r"><b>${S('farmerName')||'—'}</b>${D.dateStr||''}<br>${S('mobile')?'Ph: '+S('mobile'):''}</div></div>`;
-  const page=(c)=>{pageNo++;return `<div class="rpage"><div class="rpage-inner">${pgHeader()}${c}<div class="pg-num"><span class="c">Guided by Dr. V. Senthilkumar, Prof. &amp; Head, Dept. of AH Economics</span> Page ${pageNo}</div></div></div>`;};
+  const page=(c)=>{pageNo++;return `<div class="rpage"><div class="rpage-inner">${pgHeader()}<div class="pg-body">${c}</div><div class="pg-num"><span class="c">Guided by Dr. V. Senthilkumar, Prof. &amp; Head, Dept. of AH Economics</span> Page ${pageNo}</div></div></div>`;};
   const breed=S('gBreed')||'Goat';
   let html='';
   // cover
@@ -1303,7 +1307,7 @@ function renderHen(){
   const yhCols=YH.map(h=>`<th class="num">${h}</th>`).join('');
   let pageNo=0;
   const pgHeader=()=>`<div class="pg-header"><div><h2>Veterinary College &amp; Research Institute, Namakkal</h2><p>Dept. of Animal Husbandry Economics — Native Chicken Project Report</p></div><div class="r"><b>${S('farmerName')||'—'}</b>${D.dateStr||''}<br>${S('mobile')?'Ph: '+S('mobile'):''}</div></div>`;
-  const page=(c)=>{pageNo++;return `<div class="rpage"><div class="rpage-inner">${pgHeader()}${c}<div class="pg-num"><span class="c">Guided by Dr. V. Senthilkumar, Prof. &amp; Head, Dept. of AH Economics</span> Page ${pageNo}</div></div></div>`;};
+  const page=(c)=>{pageNo++;return `<div class="rpage"><div class="rpage-inner">${pgHeader()}<div class="pg-body">${c}</div><div class="pg-num"><span class="c">Guided by Dr. V. Senthilkumar, Prof. &amp; Head, Dept. of AH Economics</span> Page ${pageNo}</div></div></div>`;};
   const breed=S('hBreed')||'Native Chicken';
   let html='';
   html+=`<div class="rpage"><div class="cover">
@@ -1571,7 +1575,7 @@ function renderSheep(){
   const yhCols=YH.map(h=>`<th class="num">${h}</th>`).join('');
   let pageNo=0;
   const pgHeader=()=>`<div class="pg-header"><div><h2>Veterinary College &amp; Research Institute, Namakkal</h2><p>Dept. of Animal Husbandry Economics — Sheep Ram Lamb Fattening Project Report</p></div><div class="r"><b>${S('farmerName')||'—'}</b>${D.dateStr||''}<br>${S('mobile')?'Ph: '+S('mobile'):''}</div></div>`;
-  const page=(c)=>{pageNo++;return `<div class="rpage"><div class="rpage-inner">${pgHeader()}${c}<div class="pg-num"><span class="c">Guided by Dr. V. Senthilkumar, Prof. &amp; Head, Dept. of AH Economics</span> Page ${pageNo}</div></div></div>`;};
+  const page=(c)=>{pageNo++;return `<div class="rpage"><div class="rpage-inner">${pgHeader()}<div class="pg-body">${c}</div><div class="pg-num"><span class="c">Guided by Dr. V. Senthilkumar, Prof. &amp; Head, Dept. of AH Economics</span> Page ${pageNo}</div></div></div>`;};
   const breed=S('sBreed')||'Sheep';
   let html='';
   html+=`<div class="rpage"><div class="cover">
