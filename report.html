@@ -37,7 +37,7 @@ body{font-family:'Inter',sans-serif;background:#eef3ee;color:var(--text);
 .sec-title{background:linear-gradient(135deg,var(--gd),var(--gl));color:#fff;padding:9px 15px;font-size:13px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:15px;border-left:4px solid var(--gold);border-radius:3px}
 
 /* cover */
-.cover{padding:56px 44px;text-align:center;background:radial-gradient(900px 360px at 50% -30%,#e8f7ec,transparent)}
+.cover{padding:56px 44px;text-align:center;background:#fff}
 .cover .univ{font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--gm);text-transform:uppercase}
 .cover .inst{font-size:13px;font-weight:700;color:var(--text);margin-top:4px}
 .cover .dept{font-size:11.5px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
@@ -137,15 +137,15 @@ body.exporting .app-main{overflow:visible;height:auto}
 body.exporting .report-container{max-width:794px;margin:0;padding:0}
 body.exporting .rpage{margin:0;box-shadow:none;border-radius:0;page-break-before:always}
 body.exporting .rpage:first-child{page-break-before:auto}
-/* every content page fills a full A4 (794px → 1123px): letterhead pinned at the
-   top, page number at the bottom, and the section content centred in between —
-   so short sections no longer leave a big empty band at the bottom. */
+/* each physical page fills a full A4 (794px → 1123px): letterhead at the top,
+   page number at the bottom, sections flowing from the top in between. Sections
+   are packed by repaginate() so pages are full and consistent. */
 body.exporting .rpage-inner{padding:13mm 14mm;min-height:1123px;box-sizing:border-box;display:flex;flex-direction:column}
-body.exporting .pg-body{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:0}
-body.exporting .pg-num{margin-top:0}
-/* cover fills a full A4 page (794px wide → 1123px tall) so the PDF cover has no
-   awkward empty band; content is vertically centred. */
-body.exporting .cover{min-height:1123px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center}
+body.exporting .pg-body{flex:1 1 auto;min-height:0}
+body.exporting .pg-num{margin-top:10px}
+.rsec+.rsec{margin-top:22px}
+/* cover: a clean full-white title page with everything centred on the page. */
+body.exporting .cover{min-height:1123px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;background:#fff}
 body.exporting .cover h1,body.exporting .cover .subtitle,body.exporting .cover .univ,body.exporting .cover .inst,body.exporting .cover .dept{text-align:center}
 body.exporting .cover-box{width:430px}
 /* export-mode density: the on-screen row padding is generous; trim it a touch so
@@ -165,21 +165,26 @@ body.exporting .hl{margin-bottom:10px}
   .nav-btn{padding:9px 14px;font-size:12.5px}
 }
 @media(max-width:620px){
-  .rpage-inner{padding:18px 14px}
-  .cover{padding:30px 16px}
-  .cover h1{font-size:26px}
+  /* These are SCREEN-ONLY tweaks — scoped to :not(.exporting) so they never leak
+     into the PDF. During export the document is rendered full-width (794px) in an
+     off-screen container, but media queries are viewport-based and would otherwise
+     still fire on a phone, collapsing tables to display:block (hugging the left)
+     and stacking the highlight/glance rows. */
+  body:not(.exporting) .rpage-inner{padding:18px 14px}
+  body:not(.exporting) .cover{padding:30px 16px}
+  body:not(.exporting) .cover h1{font-size:26px}
   /* wide tables scroll horizontally inside the page instead of breaking the layout */
-  .rpage table{display:block;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap}
-  .hl{flex-direction:column}
-  .hl .b{min-width:0}
-  .glance .row{flex-direction:column}
-  .glance .row .k{flex:none;width:100%}
+  body:not(.exporting) .rpage table{display:block;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap}
+  body:not(.exporting) .hl{flex-direction:column}
+  body:not(.exporting) .hl .b{min-width:0}
+  body:not(.exporting) .glance .row{flex-direction:column}
+  body:not(.exporting) .glance .row .k{flex:none;width:100%}
 }
 @media(max-width:420px){
   .screen-nav .back-btn span,.nav-btn{font-size:12px}
   .nav-btn{padding:8px 12px}
-  .cover h1{font-size:23px}
-  .sec-title{font-size:12px;padding:8px 12px}
+  body:not(.exporting) .cover h1{font-size:23px}
+  body:not(.exporting) .sec-title{font-size:12px;padding:8px 12px}
 }
 /* ════ Save-PDF dropdown ════ */
 .dl-wrap{position:relative}
@@ -323,9 +328,10 @@ function _nodeToCanvas(node, designPx, bg){
 // Metrics report: every .rpage becomes its own A4 page, scaled to fit within an
 // 8mm margin (the cover is full-bleed). One page in → one page out, never split.
 async function exportPagesPDF(filename){
-  const pages=[...document.querySelectorAll('#out .rpage')];
-  if(!pages.length) return;
   document.body.classList.add('exporting');
+  repaginate();                                    // ensure sections are flowed into full pages
+  const pages=[...document.querySelectorAll('#out .rpage')];
+  if(!pages.length){ document.body.classList.remove('exporting'); return; }
   try{
     const pdf=await _borrowPDF({unit:'mm',format:'a4',orientation:'portrait'});
     const pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight();
@@ -362,6 +368,141 @@ async function exportSheetsPDF(root, filename, bg){
   }
   pdf.deletePage(1);
   pdf.save(filename);
+}
+
+// ════════════════════ REPAGINATE — flow sections into full A4 pages ════════════════════
+// The report is generated as a flat list of <section class="rsec"> blocks. This packs
+// them into physical A4 pages — each with ONE letterhead at the top and ONE page-number
+// footer at the bottom — so every page is filled consistently and no section is split.
+// The cover stays as page 1. Measured under export conditions so it matches the PDF.
+// Idempotent: safe to run again (re-collects sections wherever they currently sit).
+let __RHDR='';
+function repaginate(){
+  const out=document.getElementById('out');
+  if(!out) return;
+  const secs=[...out.querySelectorAll('.rsec')];
+  if(!secs.length) return;
+  const coverPage = out.querySelector('.cover') ? out.querySelector('.cover').closest('.rpage') : null;
+  const header = __RHDR || (out.querySelector('.pg-header') ? out.querySelector('.pg-header').outerHTML : '');
+  const FOOT = n => `<div class="pg-num"><span class="c">Guided by Dr. V. Senthilkumar, Prof. &amp; Head, Dept. of AH Economics</span> Page ${n}</div>`;
+  const SECTION_GAP=22;            // gap above a new top-level section (matches .rsec+.rsec)
+
+  const wasExporting=document.body.classList.contains('exporting');
+  document.body.classList.add('exporting');
+
+  // Flatten the report into an ordered list of blocks (the children of every section),
+  // keeping the original order exactly. Each block carries flags used during flow.
+  const blocks=[];
+  secs.forEach(sec=>{
+    [...sec.children].forEach((ch,ci)=>blocks.push({
+      el: ch,
+      isTitle: !!(ch.classList && ch.classList.contains('sec-title')),
+      isTable: ch.tagName==='TABLE',
+      sectionStart: ci===0
+    }));
+  });
+
+  // Off-screen measuring rig — a real .rpage-inner so heights match the export 1:1.
+  // pg-body is forced to its natural (content) height so it can be measured directly.
+  const rig=document.createElement('div');
+  rig.style.cssText='position:absolute;left:-10000px;top:0;width:794px';
+  rig.innerHTML=`<div class="rpage"><div class="rpage-inner" id="__inner"><div class="__h">${header}</div><div class="pg-body" id="__pb"></div><div class="__f">${FOOT(0)}</div></div></div>`;
+  out.appendChild(rig);
+  const inner=rig.querySelector('#__inner'); inner.style.minHeight='0';
+  const pb=rig.querySelector('#__pb'); pb.style.flex='none';
+  const hdrH=rig.querySelector('.__h').getBoundingClientRect().height;
+  const ftrH=rig.querySelector('.__f').getBoundingClientRect().height;
+  const padV=Math.round(26*96/25.4);                       // 13mm top + 13mm bottom
+  const A4H=1123;
+  const CONTENT=A4H - padV - hdrH - ftrH - 4;              // usable px of body per A4 page
+  const pbH=()=>pb.getBoundingClientRect().height;
+
+  // pages[] collects the real nodes for each physical page, in order.
+  const pages=[]; let cur=[];
+  const commit=()=>{ if(cur.length){ pages.push(cur); cur=[]; } pb.innerHTML=''; };
+
+  // Place a node on the current page; if it overflows and the page already has
+  // content, break to a new page first. `gap` is an extra top margin when the node
+  // is NOT the first on its page (collapses with the previous block's margin).
+  function place(node, gap){
+    if(cur.length && gap) node.style.marginTop=gap+'px';
+    pb.appendChild(node); cur.push(node);
+    if(pbH()>CONTENT && cur.length>1){
+      pb.removeChild(node); cur.pop(); commit();
+      node.style.marginTop=''; pb.appendChild(node); cur.push(node);
+    }
+  }
+  // Headroom left on the current page (0 when the page is empty → full page available).
+  const room=()=> CONTENT - (cur.length? pbH() : 0);
+
+  blocks.forEach(b=>{
+    const gap = b.sectionStart ? SECTION_GAP : 0;
+    // keep a title with the start of its table: if little room is left, break first
+    if(b.isTitle && cur.length && room()<120) commit();
+
+    if(!b.isTable){ place(b.el.cloneNode(true), gap); return; }
+
+    // TABLE: place whole if it fits the remaining room; else split row-by-row across
+    // pages, repeating the header rows on every page so columns stay labelled.
+    const whole=b.el.cloneNode(true);
+    if(cur.length && gap) whole.style.marginTop=gap+'px';
+    pb.appendChild(whole);
+    const overflow = pbH()>CONTENT;
+    pb.removeChild(whole);
+    if(!overflow){ if(cur.length && gap) whole.style.marginTop=gap+'px'; pb.appendChild(whole); cur.push(whole); return; }
+
+    const rows=[...b.el.rows];
+    let hi=0; while(hi<rows.length && rows[hi].cells.length && [...rows[hi].cells].every(c=>c.tagName==='TH')) hi++;
+    const head=rows.slice(0,hi), body=rows.slice(hi);
+    if(!body.length){ place(whole.cloneNode(true), gap); return; }   // nothing to split — accept overflow
+
+    let bi=0, firstChunk=true;
+    while(bi<body.length){
+      const t=b.el.cloneNode(false);                 // empty table, same classes/attrs
+      head.forEach(r=>t.appendChild(r.cloneNode(true)));
+      if(cur.length && firstChunk && gap) t.style.marginTop=gap+'px';
+      pb.appendChild(t); cur.push(t);
+      if(pbH()>CONTENT && cur.length>1){             // header alone won't fit → fresh page
+        pb.removeChild(t); cur.pop(); commit();
+        t.style.marginTop=''; pb.appendChild(t); cur.push(t);
+      }
+      let added=0;
+      while(bi<body.length){
+        const rc=body[bi].cloneNode(true); t.appendChild(rc);
+        if(pbH()>CONTENT && (added>0 || cur.length>1)){
+          t.removeChild(rc);
+          if(added===0){                              // header + this row won't fit here → new page, retry
+            pb.removeChild(t); cur.pop(); commit();
+            t.style.marginTop=''; pb.appendChild(t); cur.push(t);
+            t.appendChild(rc); added++; bi++;
+          }
+          break;
+        }
+        added++; bi++;
+      }
+      firstChunk=false;
+      if(bi<body.length) commit();                    // more rows remain → continue on next page
+    }
+  });
+  commit();
+  rig.remove();
+
+  // Rebuild #out: cover first, then one physical page per collected group.
+  const frag=document.createDocumentFragment();
+  if(coverPage) frag.appendChild(coverPage);
+  pages.forEach((nodes,gi)=>{
+    const pg=document.createElement('div'); pg.className='rpage';
+    const innr=document.createElement('div'); innr.className='rpage-inner';
+    innr.innerHTML=header+'<div class="pg-body"></div>'+FOOT(gi+1);
+    const body=innr.querySelector('.pg-body');
+    nodes.forEach(n=>body.appendChild(n));
+    pg.appendChild(innr);
+    frag.appendChild(pg);
+  });
+  out.innerHTML='';
+  out.appendChild(frag);
+
+  if(!wasExporting) document.body.classList.remove('exporting');
 }
 
 // ════════════════════ SPECIES ROUTER ════════════════════
@@ -545,7 +686,7 @@ function pgHeader(){
   </div>`;
 }
 let pageNo=0;
-function page(content){ pageNo++; return `<div class="rpage"><div class="rpage-inner">${pgHeader()}<div class="pg-body">${content}</div><div class="pg-num"><span class="c">Guided by Dr. V. Senthilkumar, Prof. &amp; Head, Dept. of AH Economics</span> Page ${pageNo}</div></div></div>`; }
+function page(content){ return `<section class="rsec">${content}</section>`; }
 const rowsFn = (rows)=>rows.map(([lbl,fn])=>`<tr><td>${lbl}</td>${Array.from({length:NY},(_,y)=>`<td class="num">${INR(fn(y))}</td>`).join('')}</tr>`).join('');
 
 let html='';
@@ -749,6 +890,8 @@ html += page(`
 </div>`);
 
 document.getElementById('out').innerHTML = html;
+__RHDR = pgHeader();
+if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(repaginate); } else { repaginate(); }
 
 // ════════════════════ ACTIONS — Preview Summary & Download PDF ════════════════════
 const dscrViable = avgDscr >= 2;   // viable notification threshold (DSCR ≥ 2)
@@ -1062,7 +1205,7 @@ function renderGoat(){
   const yhCols=YH.map(h=>`<th class="num">${h}</th>`).join('');
   let pageNo=0;
   const pgHeader=()=>`<div class="pg-header"><div><h2>Veterinary College &amp; Research Institute, Namakkal</h2><p>Dept. of Animal Husbandry Economics — Bankable Goat Project Report</p></div><div class="r"><b>${S('farmerName')||'—'}</b>${D.dateStr||''}<br>${S('mobile')?'Ph: '+S('mobile'):''}</div></div>`;
-  const page=(c)=>{pageNo++;return `<div class="rpage"><div class="rpage-inner">${pgHeader()}<div class="pg-body">${c}</div><div class="pg-num"><span class="c">Guided by Dr. V. Senthilkumar, Prof. &amp; Head, Dept. of AH Economics</span> Page ${pageNo}</div></div></div>`;};
+  const page=(c)=>`<section class="rsec">${c}</section>`;
   const breed=S('gBreed')||'Goat';
   let html='';
   // cover
@@ -1232,6 +1375,8 @@ function renderGoat(){
     viable:viable, zero:ZERO
   };
   out.innerHTML=html;
+  __RHDR=pgHeader();
+  if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(repaginate); } else { repaginate(); }
   attachReportActions({ species:'Goat', name:S('farmerName'), mobile:S('mobile'), email:S('email'),
     date:D.dateStr, time:D.timeStr, animalType:'Goat', breed:breed, numAnimals:tot,
     projectCost:totalProject, loan:loan, npv:npv, bcr:bcr, irr:irr, dscr:avgDscr,
@@ -1307,7 +1452,7 @@ function renderHen(){
   const yhCols=YH.map(h=>`<th class="num">${h}</th>`).join('');
   let pageNo=0;
   const pgHeader=()=>`<div class="pg-header"><div><h2>Veterinary College &amp; Research Institute, Namakkal</h2><p>Dept. of Animal Husbandry Economics — Native Chicken Project Report</p></div><div class="r"><b>${S('farmerName')||'—'}</b>${D.dateStr||''}<br>${S('mobile')?'Ph: '+S('mobile'):''}</div></div>`;
-  const page=(c)=>{pageNo++;return `<div class="rpage"><div class="rpage-inner">${pgHeader()}<div class="pg-body">${c}</div><div class="pg-num"><span class="c">Guided by Dr. V. Senthilkumar, Prof. &amp; Head, Dept. of AH Economics</span> Page ${pageNo}</div></div></div>`;};
+  const page=(c)=>`<section class="rsec">${c}</section>`;
   const breed=S('hBreed')||'Native Chicken';
   let html='';
   html+=`<div class="rpage"><div class="cover">
@@ -1467,6 +1612,8 @@ function renderHen(){
     viable:viable, zero:ZERO
   };
   out.innerHTML=html;
+  __RHDR=pgHeader();
+  if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(repaginate); } else { repaginate(); }
   attachReportActions({ species:'Hen', name:S('farmerName'), mobile:S('mobile'), email:S('email'),
     date:D.dateStr, time:D.timeStr, animalType:'Native Hen', breed:breed, numAnimals:birds,
     projectCost:totalProject, loan:loan, npv:npv, bcr:bcr, irr:irr, dscr:avgDscr,
@@ -1575,7 +1722,7 @@ function renderSheep(){
   const yhCols=YH.map(h=>`<th class="num">${h}</th>`).join('');
   let pageNo=0;
   const pgHeader=()=>`<div class="pg-header"><div><h2>Veterinary College &amp; Research Institute, Namakkal</h2><p>Dept. of Animal Husbandry Economics — Sheep Ram Lamb Fattening Project Report</p></div><div class="r"><b>${S('farmerName')||'—'}</b>${D.dateStr||''}<br>${S('mobile')?'Ph: '+S('mobile'):''}</div></div>`;
-  const page=(c)=>{pageNo++;return `<div class="rpage"><div class="rpage-inner">${pgHeader()}<div class="pg-body">${c}</div><div class="pg-num"><span class="c">Guided by Dr. V. Senthilkumar, Prof. &amp; Head, Dept. of AH Economics</span> Page ${pageNo}</div></div></div>`;};
+  const page=(c)=>`<section class="rsec">${c}</section>`;
   const breed=S('sBreed')||'Sheep';
   let html='';
   html+=`<div class="rpage"><div class="cover">
@@ -1725,6 +1872,8 @@ function renderSheep(){
   };
 
   out.innerHTML=html;
+  __RHDR=pgHeader();
+  if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(repaginate); } else { repaginate(); }
   attachReportActions({ species:'Sheep', name:S('farmerName'), mobile:S('mobile'), email:S('email'),
     date:D.dateStr, time:D.timeStr, animalType:'Sheep (Ram Lamb)', breed:breed, numAnimals:lambs,
     projectCost:totalProject, loan:loan, npv:npv, bcr:bcr, irr:irr, dscr:avgDscr,
