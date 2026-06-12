@@ -708,6 +708,9 @@ function validateSection(i){
 function show(i){
   cur=i;
   secs.forEach((s,k)=>s.classList.toggle('active',k===i));
+  // Type of Animal selector shows only on the "Your Details" step
+  const _sp=document.querySelector('.species-pick');
+  if(_sp) _sp.style.display=(SECTIONS[i]&&SECTIONS[i].id==='details')?'':'none';
   links.forEach((a,k)=>{ a.classList.toggle('active',k===i); a.classList.toggle('done',k<i); });
   introKick.textContent=`Section ${i+1} of ${N} · ${SECTIONS[i].title}`;
   pfill.style.width=((i+1)/N*100)+'%';
